@@ -1,33 +1,33 @@
 use std::char;
-
 use anyhow::Error;
+use kind::Kind;
 
-const CONSONENT_LIST: [char; 20] = ['b', 'c', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'p', 'q', 'r', 's', 't', 'v', 'w', 'x', 'z'];
-const VOWEL_LIST: [char; 5] = ['a', 'e', 'i', 'o', 'u'];
+mod kind;
+mod measure;
 
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) enum Kind {
-    Consonent,
-    Vowel
-}
-
-#[derive(Debug)]
-pub(crate) enum ParsedWord {
-    Consonents(Vec<char>),
-    Vowels(Vec<char>),
+#[derive(Debug, PartialEq)]
+pub enum ParsedWord {
+    C(Vec<char>),
+    V(Vec<char>),
     None
 }
 
 impl ParsedWord {
+    /// Build a ParsedWord from a list of char
+    /// 
+    /// # Arguments
+    /// 
+    /// * `char_list` - Vec<char>
     fn build(char_list: Vec<char>) -> ParsedWord {
-        let last_char = char_list.last();
-        if last_char.is_none() {
-            return ParsedWord::None;
-        }
-
-        match Kind::from(*last_char.unwrap()) {
-            Kind::Consonent => ParsedWord::Consonents(char_list),
-            Kind::Vowel => ParsedWord::Vowels(char_list)
+        match char_list.last() {
+            Some(c) => {
+                match Kind::from(*c) {
+                    Kind::Consonent => ParsedWord::C(char_list),
+                    Kind::Vowel => ParsedWord::V(char_list),
+                    Kind::None => ParsedWord::None
+                }
+            },
+            None => ParsedWord::None
         }
     }
 
@@ -36,7 +36,7 @@ impl ParsedWord {
     /// # Arguments
     /// 
     /// * `word` - &str
-    fn get_kinds_for_word(word: &str) -> Result<Vec<ParsedWord>, Error> {
+    fn parse(word: &str) -> Result<Vec<ParsedWord>, Error> {
         let mut kinds = Vec::new();
         // split the string into single char
         let characters: Vec<char> = word.chars().collect();
@@ -48,16 +48,13 @@ impl ParsedWord {
                 return Err(Error::msg("Unable to get the current character"))
             };
 
-            // get the type of the current character
-            let curr_char_type = Kind::from(*current_char);
-
             // get the last item of the current list
             match current_chars_list.last() {
                 Some(item) => {
+                    let curr_char_kind = Kind::from(*current_char);
                     // insert a character if it has the same type in order to associated a set of character with consonent or vowel
-                    let item_char_type = Kind::from(*item);
                     // if match the same type, insert the character to the temporary character vector
-                    if item_char_type == curr_char_type {
+                    if Kind::from(*item) == curr_char_kind {
                         current_chars_list.push(current_char.to_owned());
                     } else {
                         kinds.push(ParsedWord::build(current_chars_list.to_owned()));
@@ -80,35 +77,27 @@ impl ParsedWord {
     }
 }
 
-impl From<char> for Kind {
-    fn from(c: char) -> Self {
-        if CONSONENT_LIST.contains(&c) {
-            return Kind::Consonent;
-        }
-
-        Kind::Vowel
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     
     #[test]
     fn expect_to_get_kind_vec() {
-        let word = "eye";
+        let word = "toy";
+        let list = ParsedWord::parse(word).unwrap();
 
-        let list = ParsedWord::get_kinds_for_word(word);
-
-        dbg!(list);
+        assert_eq!(*list.get(0).unwrap(), ParsedWord::C(vec!['t']));
+        assert_eq!(*list.get(1).unwrap(), ParsedWord::V(vec!['o', 'y']));
     }
 
     #[test]
     fn expect_to_get_kind_complex_word() {
         let word = "trouble";
+        let list = ParsedWord::parse(word).unwrap();
 
-        let list = ParsedWord::get_kinds_for_word(word);
-
-        dbg!(list);
+        assert_eq!(*list.get(0).unwrap(), ParsedWord::C(vec!['t', 'r']));
+        assert_eq!(*list.get(1).unwrap(), ParsedWord::V(vec!['o', 'u']));
+        assert_eq!(*list.get(2).unwrap(), ParsedWord::C(vec!['b', 'l']));
+        assert_eq!(*list.get(3).unwrap(), ParsedWord::V(vec!['e']));
     }
 }
