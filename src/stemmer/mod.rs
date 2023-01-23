@@ -1,103 +1,130 @@
-use std::char;
-use anyhow::Error;
-use kind::Kind;
-
 mod kind;
 mod measure;
+mod porter;
 
-#[derive(Debug, PartialEq)]
-pub enum ParsedWord {
-    C(Vec<char>),
-    V(Vec<char>),
-    None
+use anyhow::Error;
+use self::kind::Kind;
+use self::porter::ParsedWord;
+
+// Constant
+const AVOID_CONSONENTS: [char; 3] = ['w', 'x', 'y'];
+
+pub(crate) struct Stem<'a> {
+    word: &'a str,
+    porter_stemmer: Vec<ParsedWord>
 }
 
-impl ParsedWord {
-    /// Build a ParsedWord from a list of char
+impl<'a> Stem<'a> {
+    /// Create a new Stem struct and build the porter_stemmer representation of the word
     /// 
     /// # Arguments
     /// 
-    /// * `char_list` - Vec<char>
-    fn build(char_list: Vec<char>) -> ParsedWord {
-        match char_list.last() {
-            Some(c) => {
-                match Kind::from(*c) {
-                    Kind::Consonent => ParsedWord::C(char_list),
-                    Kind::Vowel => ParsedWord::V(char_list),
-                    Kind::None => ParsedWord::None
-                }
-            },
-            None => ParsedWord::None
-        }
+    /// * `word` - &'a str
+    pub fn new(word: &'a str) -> Result<Stem<'a>, Error>{
+        let porter_stemmer = ParsedWord::parse(word)?;
+
+        Ok(Stem {
+            word,
+            porter_stemmer
+        })
     }
 
-    /// Get a vetor of kinds for each characters which set whether it's a vowel or consonent
+    /// Check the end of a word (either if it's a S, L, T...) (*S)
     /// 
     /// # Arguments
     /// 
-    /// * `word` - &str
-    fn parse(word: &str) -> Result<Vec<ParsedWord>, Error> {
-        let mut kinds = Vec::new();
-        // split the string into single char
-        let characters: Vec<char> = word.chars().collect();
-        // temporary list
-        let mut current_chars_list: Vec<char> = Vec::new();
-
-        for chars_idx in 0..characters.len() {
-            let Some(current_char) = characters.get(chars_idx) else {
-                return Err(Error::msg("Unable to get the current character"))
-            };
-
-            // get the last item of the current list
-            match current_chars_list.last() {
-                Some(item) => {
-                    let curr_char_kind = Kind::from(*current_char);
-                    // insert a character if it has the same type in order to associated a set of character with consonent or vowel
-                    // if match the same type, insert the character to the temporary character vector
-                    if Kind::from(*item) == curr_char_kind {
-                        current_chars_list.push(current_char.to_owned());
-                    } else {
-                        kinds.push(ParsedWord::build(current_chars_list.to_owned()));
-                        // flush the temporary list
-                        current_chars_list.clear();
-                        // pushing the character which does not match the previous kind
-                        current_chars_list.push(*current_char);
-                    }
-                },
-                None => current_chars_list.push(*current_char)
-            }
-
-            // push the kinds with the remaining list
-            if chars_idx == characters.len() - 1 {
-                kinds.push(ParsedWord::build(current_chars_list.clone()));
+    /// * `letters` - Vec<&str>
+    fn check_end_letter(&self, letters: Vec<&str>) -> bool {
+        for letter in letters {
+            if self.word.ends_with(letter) {
+                return true;
             }
         }
 
-        Ok(kinds)
+        false
+    }
+
+    /// Check if the word has a vowel (*v*)
+    fn has_vowel(&self) -> bool {
+        Kind::has_vowel(self.word)
+    }
+
+    /// Check if the word end with a double consonent (any consonent) (*d)
+    fn end_with_double_consonent(&self) -> bool {
+        Kind::end_with_double_consonent(self.word)
+    }
+
+    /// Check the chain of Consonent -> Vowel -> Consonent pattern (*o)
+    /// /!\ Note that the second consonent must not be W, X or Y
+    fn check_cvc_pattern(&self) -> bool {
+        if self.porter_stemmer.len() < 3 {
+            return false;
+        }
+
+        // get the last 3 items of the porter stemmer
+        let end_length = self.porter_stemmer.len() - 3;
+        let items = self.porter_stemmer.get(end_length..);
+        if items.is_none() {
+            return false;
+        }
+
+        let mut valid = false;
+        for (idx, item) in items.unwrap().into_iter().enumerate() {
+            // @TODO we can use a reference later...
+            let kind = Kind::from(item.clone());
+
+            if idx == 0 && kind == Kind::Consonent {
+                valid = true;
+            } else if idx == 1 && kind == Kind::Vowel {
+                valid = true;
+            } else if idx == 2 {
+                // get the inner value whether it's not W,X,Y
+                let character = item.as_char();
+                if !AVOID_CONSONENTS.contains(&character) && kind == Kind::Consonent {
+                    valid = true;
+                } else {
+                    valid = false;
+                }
+            } else {
+                valid = false;
+            }
+        }
+
+        valid
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
-    #[test]
-    fn expect_to_get_kind_vec() {
-        let word = "toy";
-        let list = ParsedWord::parse(word).unwrap();
 
-        assert_eq!(*list.get(0).unwrap(), ParsedWord::C(vec!['t']));
-        assert_eq!(*list.get(1).unwrap(), ParsedWord::V(vec!['o', 'y']));
+    #[test]
+    fn expect_to_end_cvc_pattern() {
+        let word = "rapperswil";
+        let stemmer = Stem::new(word).unwrap();
+        
+        let is_cvc = stemmer.check_cvc_pattern();
+
+        assert_eq!(is_cvc, true);
     }
 
     #[test]
-    fn expect_to_get_kind_complex_word() {
-        let word = "trouble";
-        let list = ParsedWord::parse(word).unwrap();
+    fn expect_to_not_end_cvc_pattern() {
+        let word = "hello";
+        let stemmer = Stem::new(word).unwrap();
+        
+        let is_cvc = stemmer.check_cvc_pattern();
 
-        assert_eq!(*list.get(0).unwrap(), ParsedWord::C(vec!['t', 'r']));
-        assert_eq!(*list.get(1).unwrap(), ParsedWord::V(vec!['o', 'u']));
-        assert_eq!(*list.get(2).unwrap(), ParsedWord::C(vec!['b', 'l']));
-        assert_eq!(*list.get(3).unwrap(), ParsedWord::V(vec!['e']));
+        assert_eq!(is_cvc, false);
+    }
+
+    #[test]
+    fn expect_to_not_end_cvc_consonent_pattern() {
+        let word = "nywow";
+        let stemmer = Stem::new(word).unwrap();
+        
+        let is_cvc = stemmer.check_cvc_pattern();
+
+        assert_eq!(is_cvc, false);
     }
 }

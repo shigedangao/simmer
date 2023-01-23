@@ -1,4 +1,7 @@
-use super::{ParsedWord, kind::Kind};
+use super::{
+    porter::ParsedWord,
+    kind::Kind
+};
 
 /// Compute the number of combination of VC (Vowel -> Consonent) in the CVCV model
 /// 

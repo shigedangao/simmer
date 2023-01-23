@@ -1,13 +1,53 @@
-use super::ParsedWord;
+use super::porter::ParsedWord;
 
 // Constant
 const CONSONENT_LIST: [char; 20] = ['b', 'c', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'p', 'q', 'r', 's', 't', 'v', 'w', 'x', 'z'];
+const VOWEL_LIST: [char; 6] = ['a', 'e', 'i', 'o', 'u', 'y'];
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Kind {
     Consonent,
     Vowel,
     None
+}
+
+impl Kind {
+    /// Return whether a word has a vowel
+    /// 
+    /// # Arguments
+    /// 
+    /// * `word` - &str
+    pub fn has_vowel(word: &str) -> bool {
+        for vowel in VOWEL_LIST {
+            if word.contains(vowel) {
+                return true
+            }
+        }
+
+        false
+    }
+
+    /// Check whether a word end with a double consonent
+    /// 
+    /// # Arguments
+    /// 
+    /// * `word` - &str
+    pub fn end_with_double_consonent(word: &str) -> bool {
+        // get the last two char of the word
+        let two_end_character = word.get(word.len() - 2..);
+        if let Some(end) = two_end_character {
+            // split the two chacter into char
+            let chars: Vec<char> = end.chars()
+                .filter(|c| CONSONENT_LIST.contains(c))
+                .collect();
+
+            if chars.len() == 2 {
+                return true;
+            }
+        }
+
+        false
+    }
 }
 
 impl From<char> for Kind {
@@ -27,5 +67,26 @@ impl From<ParsedWord> for Kind {
             ParsedWord::V(_) => Kind::Vowel,
             ParsedWord::None => Kind::None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn expect_to_have_double_consonents() {
+        let word = "annyeong";
+        let res = Kind::end_with_double_consonent(word);
+        
+        assert_eq!(res, true);
+    }
+
+    #[test]
+    fn expect_to_not_have_double_consonents() {
+        let word = "hello";
+        let res = Kind::end_with_double_consonent(word);
+        
+        assert_eq!(res, false);
     }
 }
