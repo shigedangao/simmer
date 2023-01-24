@@ -12,10 +12,10 @@ pub(crate) enum Kind {
 }
 
 impl Kind {
-    /// Return whether a word has a vowel
-    /// 
+    /// Return whether a word has a vowel (*v*)
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `word` - &str
     pub fn has_vowel(word: &str) -> bool {
         for vowel in VOWEL_LIST {
@@ -27,10 +27,10 @@ impl Kind {
         false
     }
 
-    /// Check whether a word end with a double consonent
-    /// 
+    /// Check whether a word end with a double consonent (*d)
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `word` - &str
     pub fn end_with_double_consonent(word: &str) -> bool {
         // get the last two char of the word
@@ -78,7 +78,7 @@ mod tests {
     fn expect_to_have_double_consonents() {
         let word = "annyeong";
         let res = Kind::end_with_double_consonent(word);
-        
+
         assert_eq!(res, true);
     }
 
@@ -86,7 +86,7 @@ mod tests {
     fn expect_to_not_have_double_consonents() {
         let word = "hello";
         let res = Kind::end_with_double_consonent(word);
-        
+
         assert_eq!(res, false);
     }
 }

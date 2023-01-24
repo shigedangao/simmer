@@ -4,11 +4,11 @@ use super::{
 };
 
 /// Compute the number of combination of VC (Vowel -> Consonent) in the CVCV model
-/// 
+///
 /// # Arguments
-/// 
-/// * `parsed_words` - Vec<ParsedWord>
-pub fn compute_measures(parsed_words: Vec<ParsedWord>) -> i32 {
+///
+/// * `parsed_words` - &Vec<ParsedWord>
+pub fn compute_measures(parsed_words: &Vec<ParsedWord>) -> i32 {
     let mut previous = Kind::None;
     let mut measured = 0;
 
@@ -16,12 +16,12 @@ pub fn compute_measures(parsed_words: Vec<ParsedWord>) -> i32 {
         // Set the previous value to the first value initially and skip the checking
         // as we're unable to count
         if previous == Kind::None {
-            previous = Kind::from(pw);
+            previous = Kind::from(pw.to_owned());
 
             continue;
         }
 
-        let current = Kind::from(pw);
+        let current = Kind::from(pw.to_owned());
         // check whether we have the combination 'VC (Vowel -> Consonent'
         if previous == Kind::Vowel && current == Kind::Consonent {
             measured += 1;
@@ -44,7 +44,7 @@ mod tests {
             ParsedWord::V(vec!['e', 'e'])
         ];
 
-        let m = compute_measures(pw);
+        let m = compute_measures(&pw);
 
         assert_eq!(m, 0);
     }
@@ -58,7 +58,7 @@ mod tests {
             ParsedWord::V(vec!['e'])
         ];
 
-        let m = compute_measures(pw);
+        let m = compute_measures(&pw);
 
         assert_eq!(m, 1);
     }
@@ -73,7 +73,7 @@ mod tests {
             ParsedWord::C(vec!['s'])
         ];
 
-        let m = compute_measures(pw);
+        let m = compute_measures(&pw);
 
         assert_eq!(m, 2);
     }

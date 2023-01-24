@@ -1,6 +1,7 @@
 mod kind;
 mod measure;
 mod porter;
+mod steps;
 
 use anyhow::Error;
 use self::kind::Kind;
@@ -16,9 +17,9 @@ pub(crate) struct Stem<'a> {
 
 impl<'a> Stem<'a> {
     /// Create a new Stem struct and build the porter_stemmer representation of the word
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `word` - &'a str
     pub fn new(word: &'a str) -> Result<Stem<'a>, Error>{
         let porter_stemmer = ParsedWord::parse(word)?;
@@ -30,13 +31,13 @@ impl<'a> Stem<'a> {
     }
 
     /// Check the end of a word (either if it's a S, L, T...) (*S)
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `letters` - Vec<&str>
-    fn check_end_letter(&self, letters: Vec<&str>) -> bool {
+    fn check_end_letter(word: &str, letters: Vec<&str>) -> bool {
         for letter in letters {
-            if self.word.ends_with(letter) {
+            if word.ends_with(letter) {
                 return true;
             }
         }
@@ -44,53 +45,60 @@ impl<'a> Stem<'a> {
         false
     }
 
-    /// Check if the word has a vowel (*v*)
-    fn has_vowel(&self) -> bool {
-        Kind::has_vowel(self.word)
-    }
-
-    /// Check if the word end with a double consonent (any consonent) (*d)
-    fn end_with_double_consonent(&self) -> bool {
-        Kind::end_with_double_consonent(self.word)
-    }
-
     /// Check the chain of Consonent -> Vowel -> Consonent pattern (*o)
     /// /!\ Note that the second consonent must not be W, X or Y
     fn check_cvc_pattern(&self) -> bool {
-        if self.porter_stemmer.len() < 3 {
+        if self.word.len() < 3 {
             return false;
         }
 
-        // get the last 3 items of the porter stemmer
-        let end_length = self.porter_stemmer.len() - 3;
-        let items = self.porter_stemmer.get(end_length..);
-        if items.is_none() {
-            return false;
-        }
+        let end = self.word.get(self.word.len() - 3..);
+        match end {
+            Some(v) => {
+                // split the char
+                let kinds: Vec<Kind> = v.chars()
+                    .enumerate()
+                    .filter_map(|(idx, c)| {
+                        if idx == 2 && AVOID_CONSONENTS.contains(&c) {
+                            return None;
+                        }
 
-        let mut valid = false;
-        for (idx, item) in items.unwrap().into_iter().enumerate() {
-            // @TODO we can use a reference later...
-            let kind = Kind::from(item.clone());
+                        Some(Kind::from(c))
+                    })
+                    .collect();
 
-            if idx == 0 && kind == Kind::Consonent {
-                valid = true;
-            } else if idx == 1 && kind == Kind::Vowel {
-                valid = true;
-            } else if idx == 2 {
-                // get the inner value whether it's not W,X,Y
-                let character = item.as_char();
-                if !AVOID_CONSONENTS.contains(&character) && kind == Kind::Consonent {
-                    valid = true;
+                if kinds.len() < 3 {
+                    false
                 } else {
-                    valid = false;
-                }
-            } else {
-                valid = false;
-            }
-        }
+                    let mut valid = false;
+                    // fused options
+                    let consonents = kinds.get(0)
+                        .zip(kinds.get(2));
 
-        valid
+                    if let Some((c_one, c_two)) = consonents {
+                        if *c_one == Kind::Consonent && *c_two == Kind::Consonent {
+                            valid = true;
+                        }
+                    }
+
+                    if let Some(vowel) = kinds.get(1) {
+                        if *vowel == Kind::Vowel {
+                            valid = true;
+                        } else {
+                            valid = false;
+                        }
+                    }
+
+                    valid
+                }
+            },
+            None => false
+        }
+    }
+
+    /// Get the measure from the porter stemmer
+    fn get_measure(&self) -> i32 {
+        return measure::compute_measures(&self.porter_stemmer)
     }
 }
 
@@ -102,7 +110,7 @@ mod tests {
     fn expect_to_end_cvc_pattern() {
         let word = "rapperswil";
         let stemmer = Stem::new(word).unwrap();
-        
+
         let is_cvc = stemmer.check_cvc_pattern();
 
         assert_eq!(is_cvc, true);
@@ -112,7 +120,7 @@ mod tests {
     fn expect_to_not_end_cvc_pattern() {
         let word = "hello";
         let stemmer = Stem::new(word).unwrap();
-        
+
         let is_cvc = stemmer.check_cvc_pattern();
 
         assert_eq!(is_cvc, false);
@@ -122,7 +130,7 @@ mod tests {
     fn expect_to_not_end_cvc_consonent_pattern() {
         let word = "nywow";
         let stemmer = Stem::new(word).unwrap();
-        
+
         let is_cvc = stemmer.check_cvc_pattern();
 
         assert_eq!(is_cvc, false);
