@@ -10,22 +10,22 @@ use self::porter::ParsedWord;
 // Constant
 const AVOID_CONSONENTS: [char; 3] = ['w', 'x', 'y'];
 
-pub(crate) struct Stem<'a> {
-    word: &'a str,
+pub(crate) struct Stem {
+    word: String,
     porter_stemmer: Vec<ParsedWord>
 }
 
-impl<'a> Stem<'a> {
+impl Stem {
     /// Create a new Stem struct and build the porter_stemmer representation of the word
     ///
     /// # Arguments
     ///
     /// * `word` - &'a str
-    pub fn new(word: &'a str) -> Result<Stem<'a>, Error>{
+    pub fn new(word: &str) -> Result<Stem, Error>{
         let porter_stemmer = ParsedWord::parse(word)?;
 
         Ok(Stem {
-            word,
+            word: word.to_string(),
             porter_stemmer
         })
     }
@@ -99,6 +99,26 @@ impl<'a> Stem<'a> {
     /// Get the measure from the porter stemmer
     fn get_measure(&self) -> i32 {
         return measure::compute_measures(&self.porter_stemmer)
+    }
+
+    /// Parse a new word and set the stemmer to this new word
+    ///
+    /// # Arguments
+    ///
+    /// * `&mut self` - Self
+    /// * `word` - &str
+    fn parse_new_word(&mut self, word: &str) -> Result<(), Error> {
+        self.porter_stemmer = ParsedWord::parse(word)?;
+        self.word = word.to_string();
+
+        Ok(())
+    }
+
+    /// recompute the porter stemmer for the current word
+    fn recompute_porter_stemmer(&mut self) -> Result<(), Error> {
+        self.porter_stemmer = ParsedWord::parse(&self.word)?;
+
+        Ok(())
     }
 }
 

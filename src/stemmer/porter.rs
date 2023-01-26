@@ -10,9 +10,9 @@ pub enum ParsedWord {
 
 impl ParsedWord {
     /// Build a ParsedWord from a list of char
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `char_list` - Vec<char>
     fn build(char_list: Vec<char>) -> ParsedWord {
         match char_list.last() {
@@ -28,9 +28,9 @@ impl ParsedWord {
     }
 
     /// Get a vetor of kinds for each characters which set whether it's a vowel or consonent
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `word` - &str
     pub fn parse(word: &str) -> Result<Vec<ParsedWord>, Error> {
         let mut kinds = Vec::new();
@@ -71,27 +71,12 @@ impl ParsedWord {
 
         Ok(kinds)
     }
-
-    /// Get the inner char value (only the first item)
-    pub fn as_char(&self) -> char {
-        let item = match self {
-            ParsedWord::C(items) => items.get(0),
-            ParsedWord::V(items) => items.get(0),
-            ParsedWord::None => None
-        };
-
-        if let Some(c) = item {
-            return c.to_owned()
-        }
-
-        char::default()
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn expect_to_get_kind_vec() {
         let word = "toy";
