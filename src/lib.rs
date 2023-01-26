@@ -1,7 +1,12 @@
-pub mod stemmer;
+mod stemmer;
 
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
+use stemmer::Stemmer;
+
+pub fn stem(word: &str) -> Result<String, anyhow::Error> {
+    let mut stemmer = Stemmer::new(&word.to_lowercase())?;
+    let res = stemmer.stem()?;
+
+    Ok(res)
 }
 
 #[cfg(test)]
@@ -9,8 +14,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+    fn expect_to_stem_word() {
+        let res = stem("MULTIDIMENSIONAL").unwrap();
+
+        assert_eq!(res, "multidimension");
     }
 }

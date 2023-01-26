@@ -1,7 +1,7 @@
 use anyhow::Error;
 use super::{
     kind::Kind,
-    Stem,
+    Stemmer,
 };
 
 // constant
@@ -9,13 +9,13 @@ const SUFFIX_STEP_1B: [&str; 2] = ["ed", "ing"];
 const LSZ: [&str; 3] = ["l", "s", "z"];
 const ST: [&str; 2] = ["s", "t"];
 const L: [&str; 1] = ["l"];
-const RULES_TWO: [(&str, &str); 20] = [
+pub const RULES_TWO: [(&str, &str); 20] = [
     ("ational", "ate"), ("tional", "tion"), ("enci", "ence"), ("anci", "ance"), ("izer", "ize"),
     ("abli", "able"), ("alli", "al"), ("entli", "ent"), ("eli", "e"), ("ousli", "ous"),
     ("ization", "ize"), ("ation", "aze"), ("ator", "ate"), ("alism", "al"), ("iveness", "ive"),
     ("fulness", "ful"), ("ousness", "ous"), ("aliti", "al"), ("iviti", "ive"), ("biliti", "ble")
 ];
-const RULES_THREE: [(&str, &str); 7] = [
+pub const RULES_THREE: [(&str, &str); 7] = [
     ("icate", "ic"), ("ative", ""), ("alize", "al"), ("iciti", "ic"), ("ical", "ic"),
     ("ful", ""), ("ness", "")
 ];
@@ -25,30 +25,30 @@ const RULES_FOUR: [&str; 18] = [
 ];
 
 pub(crate) trait PorterStemmerStep1 {
-    /// Process step 1a is to remove the plural (s) from a stem
+    /// Process step 1a is to remove the plural (s) from a Stemmer
     /// for example a word such as ponies become poni
     fn process_step_one_a(&mut self) -> &mut Self;
-    /// Process step 1b is to remove past particles (ed) from a stem
+    /// Process step 1b is to remove past particles (ed) from a Stemmer
     /// for example a word such as plastered become plaster
-    fn process_step_one_b(&mut self) -> Result<&mut Stem, Error>;
+    fn process_step_one_b(&mut self) -> Result<&mut Stemmer, Error>;
     /// Process step 1c is to remove any suffix from a word
     /// for example a word such as happy become happi
-    fn process_step_one_c(&mut self) -> &mut Stem;
+    fn process_step_one_c(&mut self) -> &mut Stemmer;
 }
 
 pub(crate) trait PorterStemmerStep2And3 {
-    fn process_step_two_and_three(&mut self, rules: Vec<(&str, &str)>) -> Result<&mut Stem, Error>;
+    fn process_step_two_and_three(&mut self, rules: Vec<(&str, &str)>) -> Result<&mut Stemmer, Error>;
 }
 
 pub(crate) trait PorterStemmerStep4 {
-    fn process_step_four(&mut self, rules: Vec<&str>) -> Result<&mut Stem, Error>;
+    fn process_step_four(&mut self) -> Result<&mut Stemmer, Error>;
 }
 
 pub(crate) trait PorterStemmerStep5 {
     fn process_step_fifth(&mut self) -> Result<String, Error>;
 }
 
-impl PorterStemmerStep1 for Stem {
+impl PorterStemmerStep1 for Stemmer {
     // Step 1a
     fn process_step_one_a(&mut self) -> &mut Self {
         let word = match &self.word {
@@ -65,7 +65,7 @@ impl PorterStemmerStep1 for Stem {
     }
 
     // Step 1b
-    fn process_step_one_b(&mut self) -> Result<&mut Stem, Error> {
+    fn process_step_one_b(&mut self) -> Result<&mut Stemmer, Error> {
         // expect to return a word ending with 'ee' instead of 'eed'
         // this handle the case of (m>0) EED -> EE
         if self.word.ends_with("eed") {
@@ -75,7 +75,7 @@ impl PorterStemmerStep1 for Stem {
             // trim the word
             let mut trimmed = self.word.to_owned();
             trimmed = trimmed.trim_end_matches("eed").to_string();
-            // recompute the stem for the trimmed word
+            // recompute the Stemmer for the trimmed word
             self.parse_new_word(&trimmed)?;
 
             if self.get_measure() > 0 {
@@ -120,10 +120,10 @@ impl PorterStemmerStep1 for Stem {
     }
 }
 
-impl PorterStemmerStep2And3 for Stem {
+impl PorterStemmerStep2And3 for Stemmer {
     // Step 2
-    fn process_step_two_and_three(&mut self, rules: Vec<(&str, &str)>) -> Result<&mut Stem, Error> {
-        // Recompute the porter stemmer in order to get a measure
+    fn process_step_two_and_three(&mut self, rules: Vec<(&str, &str)>) -> Result<&mut Stemmer, Error> {
+        // Recompute the porter Stemmer in order to get a measure
         self.recompute_porter_stemmer()?;
 
         if self.get_measure() > 0 {
@@ -140,12 +140,12 @@ impl PorterStemmerStep2And3 for Stem {
     }
 }
 
-impl PorterStemmerStep4 for Stem {
-    fn process_step_four(&mut self, rules: Vec<&str>) -> Result<&mut Stem, Error> {
+impl PorterStemmerStep4 for Stemmer {
+    fn process_step_four(&mut self) -> Result<&mut Stemmer, Error> {
         self.recompute_porter_stemmer()?;
 
         if self.get_measure() > 1 {
-            rules.iter()
+            RULES_FOUR.iter()
                 .for_each(|rule| {
                     if self.word.ends_with(rule) {
                         self.word = self.word.replace(rule, "");
@@ -154,7 +154,7 @@ impl PorterStemmerStep4 for Stem {
 
             // Special case of *S or *T and finish by ion
             if self.word.ends_with("ion") {
-                if Stem::check_end_letter(&self.word, ST.to_vec()) {
+                if Stemmer::check_end_letter(&self.word, ST.to_vec()) {
                     self.word = self.word.replace("ion", "");
                 }
             }
@@ -164,9 +164,9 @@ impl PorterStemmerStep4 for Stem {
     }
 }
 
-impl PorterStemmerStep5 for Stem {
+impl PorterStemmerStep5 for Stemmer {
     fn process_step_fifth(&mut self) -> Result<String, Error> {
-        // recompute the porter stemmer
+        // recompute the porter Stemmer
         self.recompute_porter_stemmer()?;
 
         // Step 5a
@@ -185,7 +185,7 @@ impl PorterStemmerStep5 for Stem {
         // Step 5b
         if self.get_measure() > 1 &&
             Kind::end_with_double_consonent(&self.word) &&
-            Stem::check_end_letter(&self.word, L.to_vec()) {
+            Stemmer::check_end_letter(&self.word, L.to_vec()) {
                 self.word.pop();
         }
 
@@ -213,7 +213,7 @@ fn process_intermediary_step_b(trimmed_word: &str) -> Result<String, Error> {
     // Case where the trimmed_word end with a double consonent & is not an L, S or Z
     // we remove the last consonent
     if Kind::end_with_double_consonent(trimmed_word) &&
-        !Stem::check_end_letter(trimmed_word, LSZ.into()) {
+        !Stemmer::check_end_letter(trimmed_word, LSZ.into()) {
             let exploded: Vec<char> = trimmed_word.chars()
                 .enumerate()
                 .filter_map(|(idx, c)| {
@@ -229,8 +229,7 @@ fn process_intermediary_step_b(trimmed_word: &str) -> Result<String, Error> {
     }
 
     // last check (m=1 and *o) -> E
-
-    let stemmer = Stem::new(trimmed_word)?;
+    let stemmer = Stemmer::new(trimmed_word)?;
     if stemmer.get_measure() == 1 && stemmer.check_cvc_pattern() {
         return Ok(format!("{}e", trimmed_word));
     }
@@ -244,8 +243,8 @@ mod tests {
 
     #[test]
     fn expect_to_respect_all_step_especially_a() {
-        let mut word = Stem::new("caresses").unwrap();
-        let mut second_word = Stem::new("ponies").unwrap();
+        let mut word = Stemmer::new("caresses").unwrap();
+        let mut second_word = Stemmer::new("ponies").unwrap();
 
         let processed = word
             .process_step_one_a()
@@ -265,8 +264,8 @@ mod tests {
 
     #[test]
     fn expect_to_respect_all_step_especially_b_one() {
-        let mut feed = Stem::new("feed").unwrap();
-        let mut agreed = Stem::new("agreed").unwrap();
+        let mut feed = Stemmer::new("feed").unwrap();
+        let mut agreed = Stemmer::new("agreed").unwrap();
 
         let processed_feed = feed
             .process_step_one_a()
@@ -286,8 +285,8 @@ mod tests {
 
     #[test]
     fn expect_to_respect_all_step_especially_b_two() {
-        let mut plastered = Stem::new("plastered").unwrap();
-        let mut bled = Stem::new("bled").unwrap();
+        let mut plastered = Stemmer::new("plastered").unwrap();
+        let mut bled = Stemmer::new("bled").unwrap();
 
         let processed_plastered = plastered
             .process_step_one_a()
@@ -307,9 +306,9 @@ mod tests {
 
     #[test]
     fn expect_to_respect_all_step_especially_b_two_intermediary() {
-        let mut conflated = Stem::new("conflated").unwrap();
-        let mut hopping = Stem::new("hopping").unwrap();
-        let mut falling = Stem::new("falling").unwrap();
+        let mut conflated = Stemmer::new("conflated").unwrap();
+        let mut hopping = Stemmer::new("hopping").unwrap();
+        let mut falling = Stemmer::new("falling").unwrap();
 
         let processed_conflated = conflated
             .process_step_one_a()
@@ -336,7 +335,7 @@ mod tests {
 
     #[test]
     fn expect_to_respect_all_step_especially_c() {
-        let mut word = Stem::new("happy").unwrap();
+        let mut word = Stemmer::new("happy").unwrap();
 
         let processed = word
             .process_step_one_a()
@@ -349,7 +348,7 @@ mod tests {
 
     #[test]
     fn expect_to_respect_rules_two() {
-        let mut word = Stem::new("decisiveness").unwrap();
+        let mut word = Stemmer::new("decisiveness").unwrap();
 
         let processed = word
             .process_step_one_a()
@@ -366,7 +365,7 @@ mod tests {
 
     #[test]
     fn expect_to_respect_rules_four() {
-        let mut word = Stem::new("allowance").unwrap();
+        let mut word = Stemmer::new("allowance").unwrap();
 
         let processed = word
             .process_step_one_a()
@@ -377,7 +376,7 @@ mod tests {
             .unwrap()
             .process_step_two_and_three(RULES_THREE.to_vec())
             .unwrap()
-            .process_step_four(RULES_FOUR.to_vec())
+            .process_step_four()
             .unwrap();
 
             assert_eq!(processed.word, "allow");
@@ -385,7 +384,7 @@ mod tests {
 
     #[test]
     fn expect_to_respect_rules_fifth() {
-        let mut word = Stem::new("controll").unwrap();
+        let mut word = Stemmer::new("characterization").unwrap();
 
         let processed = word
             .process_step_one_a()
@@ -396,11 +395,11 @@ mod tests {
             .unwrap()
             .process_step_two_and_three(RULES_THREE.to_vec())
             .unwrap()
-            .process_step_four(RULES_FOUR.to_vec())
+            .process_step_four()
             .unwrap()
             .process_step_fifth()
             .unwrap();
 
-        assert_eq!(processed, "control");
+        assert_eq!(processed, "character");
     }
 }

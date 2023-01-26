@@ -6,25 +6,31 @@ mod steps;
 use anyhow::Error;
 use self::kind::Kind;
 use self::porter::ParsedWord;
+use self::steps::{
+    PorterStemmerStep1,
+    PorterStemmerStep2And3,
+    RULES_TWO,
+    RULES_THREE, PorterStemmerStep4, PorterStemmerStep5
+};
 
 // Constant
 const AVOID_CONSONENTS: [char; 3] = ['w', 'x', 'y'];
 
-pub(crate) struct Stem {
+pub struct Stemmer {
     word: String,
     porter_stemmer: Vec<ParsedWord>
 }
 
-impl Stem {
+impl Stemmer {
     /// Create a new Stem struct and build the porter_stemmer representation of the word
     ///
     /// # Arguments
     ///
     /// * `word` - &'a str
-    pub fn new(word: &str) -> Result<Stem, Error>{
+    pub fn new(word: &str) -> Result<Stemmer, Error>{
         let porter_stemmer = ParsedWord::parse(word)?;
 
-        Ok(Stem {
+        Ok(Stemmer {
             word: word.to_string(),
             porter_stemmer
         })
@@ -120,6 +126,20 @@ impl Stem {
 
         Ok(())
     }
+
+
+    pub fn stem(&mut self) -> Result<String, Error> {
+        let result = self
+            .process_step_one_a()
+            .process_step_one_b()?
+            .process_step_one_c()
+            .process_step_two_and_three(RULES_TWO.to_vec())?
+            .process_step_two_and_three(RULES_THREE.to_vec())?
+            .process_step_four()?
+            .process_step_fifth()?;
+
+        Ok(result)
+    }
 }
 
 #[cfg(test)]
@@ -129,7 +149,7 @@ mod tests {
     #[test]
     fn expect_to_end_cvc_pattern() {
         let word = "rapperswil";
-        let stemmer = Stem::new(word).unwrap();
+        let stemmer = Stemmer::new(word).unwrap();
 
         let is_cvc = stemmer.check_cvc_pattern();
 
@@ -139,7 +159,7 @@ mod tests {
     #[test]
     fn expect_to_not_end_cvc_pattern() {
         let word = "hello";
-        let stemmer = Stem::new(word).unwrap();
+        let stemmer = Stemmer::new(word).unwrap();
 
         let is_cvc = stemmer.check_cvc_pattern();
 
@@ -149,7 +169,7 @@ mod tests {
     #[test]
     fn expect_to_not_end_cvc_consonent_pattern() {
         let word = "nywow";
-        let stemmer = Stem::new(word).unwrap();
+        let stemmer = Stemmer::new(word).unwrap();
 
         let is_cvc = stemmer.check_cvc_pattern();
 
