@@ -4,22 +4,22 @@ use super::{
     Stemmer,
 };
 
-// constant
+// Constant
 const SUFFIX_STEP_1B: [&str; 2] = ["ed", "ing"];
-const LSZ: [&str; 3] = ["l", "s", "z"];
-const ST: [&str; 2] = ["s", "t"];
-const L: [&str; 1] = ["l"];
-pub const RULES_TWO: [(&str, &str); 20] = [
+const END_LETTERS_LSZ: [&str; 3] = ["l", "s", "z"];
+const END_LETTERS_ST: [&str; 2] = ["s", "t"];
+const END_LETTERS_L: [&str; 1] = ["l"];
+pub const RULES_TWO_SUFFIX: [(&str, &str); 20] = [
     ("ational", "ate"), ("tional", "tion"), ("enci", "ence"), ("anci", "ance"), ("izer", "ize"),
     ("abli", "able"), ("alli", "al"), ("entli", "ent"), ("eli", "e"), ("ousli", "ous"),
     ("ization", "ize"), ("ation", "aze"), ("ator", "ate"), ("alism", "al"), ("iveness", "ive"),
     ("fulness", "ful"), ("ousness", "ous"), ("aliti", "al"), ("iviti", "ive"), ("biliti", "ble")
 ];
-pub const RULES_THREE: [(&str, &str); 7] = [
+pub const RULES_THREE_SUFFIX: [(&str, &str); 7] = [
     ("icate", "ic"), ("ative", ""), ("alize", "al"), ("iciti", "ic"), ("ical", "ic"),
     ("ful", ""), ("ness", "")
 ];
-const RULES_FOUR: [&str; 18] = [
+const RULES_FOUR_SUFFIX: [&str; 18] = [
     "al", "ance", "ence", "er", "ic", "able", "ible", "ant", "ement",
     "ment", "ent", "ou", "ism", "ate", "iti", "ous", "ive", "ize"
 ];
@@ -30,21 +30,37 @@ pub(crate) trait PorterStemmerStep1 {
     fn process_step_one_a(&mut self) -> &mut Self;
     /// Process step 1b is to remove past particles (ed) from a Stemmer
     /// for example a word such as plastered become plaster
-    fn process_step_one_b(&mut self) -> Result<&mut Stemmer, Error>;
+    fn process_step_one_b(&mut self) -> Result<&mut Self, Error>;
+    /// In the case if the following step of 1b is true:
+    /// (*v*) ED
+    /// (*v*) ING
+    /// then we need to do an additional process which will generalize the word
+    ///
+    /// # Arguments
+    ///
+    /// * `trimmed_word` - &str
+    fn process_step_one_b_intermediary(&mut self, trimmed: &str) -> Result<&mut Self, Error>;
     /// Process step 1c is to remove any suffix from a word
     /// for example a word such as happy become happi
-    fn process_step_one_c(&mut self) -> &mut Stemmer;
+    fn process_step_one_c(&mut self) -> &mut Self;
 }
 
 pub(crate) trait PorterStemmerStep2And3 {
-    fn process_step_two_and_three(&mut self, rules: Vec<(&str, &str)>) -> Result<&mut Stemmer, Error>;
+    /// Step 2 and 3 replace the suffix by checking each rules on the targeted word if only M > 0
+    ///
+    /// # Arguments
+    ///
+    /// * `rules` - &[(&str, &str)]
+    fn process_step_two_and_three(&mut self, rules: &[(&str, &str)]) -> Result<&mut Stemmer, Error>;
 }
 
 pub(crate) trait PorterStemmerStep4 {
+    /// Step 4 replace the suffix with a set of rules if M > 1
     fn process_step_four(&mut self) -> Result<&mut Stemmer, Error>;
 }
 
 pub(crate) trait PorterStemmerStep5 {
+    /// Step 5 replace the E suffix if M > 1 or M = 1 depending on the detail of subrules
     fn process_step_fifth(&mut self) -> Result<String, Error>;
 }
 
@@ -55,7 +71,7 @@ impl PorterStemmerStep1 for Stemmer {
             w if w.ends_with("sses") => w.trim_end_matches("es").to_string(),
             w if w.ends_with("ies") => w.trim_end_matches("es").to_string(),
             w if w.ends_with("ss") => w.to_string(),
-            w if w.ends_with("s") => w.trim_end_matches("s").to_string(),
+            w if w.ends_with('s') => w.trim_end_matches('s').to_string(),
             _ => self.word.to_owned()
         };
 
@@ -96,11 +112,11 @@ impl PorterStemmerStep1 for Stemmer {
         for suffix in SUFFIX_STEP_1B {
             if self.word.ends_with(suffix) {
                 // trim the end
-                let trimmed = self.word.trim_end_matches(suffix);
+                let trimmed = self.word.trim_end_matches(suffix).to_owned();
                 // check if the trimmed word is a vowel
-                if Kind::has_vowel(trimmed) {
+                if Kind::has_vowel(&trimmed) {
                     // process the intermediary externally
-                    self.word = process_intermediary_step_b(trimmed)?;
+                    self.process_step_one_b_intermediary(&trimmed)?;
 
                     return Ok(self);
                 }
@@ -110,10 +126,51 @@ impl PorterStemmerStep1 for Stemmer {
         Ok(self)
     }
 
+    fn process_step_one_b_intermediary(&mut self, trimmed: &str) -> Result<&mut Self, Error> {
+        // Case where the trimmed_word ended with
+        // - AT
+        // - BL
+        // - IZ
+        if trimmed.ends_with("at") || trimmed.ends_with("bl") || trimmed.ends_with("iz") {
+            self.word = format!("{trimmed}e");
+            return Ok(self);
+        }
+
+        // Case where the trimmed_word end with a double consonent & is not an L, S or Z
+        // we remove the last consonent
+        if Kind::end_with_double_consonent(trimmed) &&
+        !Stemmer::check_end_letter(trimmed, &END_LETTERS_LSZ) {
+            let exploded: Vec<char> = trimmed.chars()
+                .enumerate()
+                .filter_map(|(idx, c)| {
+                    if idx < trimmed.len() - 1 {
+                        Some(c)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            self.word = exploded.iter().collect();
+
+            return Ok(self);
+        }
+
+        // last check (m=1 and *o) -> E
+        self.parse_new_word(trimmed)?;
+        if self.get_measure() == 1 && self.check_cvc_pattern() {
+            self.word = format!("{trimmed}e");
+
+            return Ok(self);
+        }
+
+        Ok(self)
+    }
+
     // Step 1c
     fn process_step_one_c(&mut self) -> &mut Self {
-        if Kind::has_vowel(&self.word) && self.word.ends_with("y") {
-            self.word = format!("{}i", self.word.trim_end_matches("y"))
+        if Kind::has_vowel(&self.word) && self.word.ends_with('y') {
+            self.word = format!("{}i", self.word.trim_end_matches('y'))
         }
 
         self
@@ -122,7 +179,7 @@ impl PorterStemmerStep1 for Stemmer {
 
 impl PorterStemmerStep2And3 for Stemmer {
     // Step 2
-    fn process_step_two_and_three(&mut self, rules: Vec<(&str, &str)>) -> Result<&mut Stemmer, Error> {
+    fn process_step_two_and_three(&mut self, rules: &[(&str, &str)]) -> Result<&mut Stemmer, Error> {
         // Recompute the porter Stemmer in order to get a measure
         self.recompute_porter_stemmer()?;
 
@@ -145,7 +202,7 @@ impl PorterStemmerStep4 for Stemmer {
         self.recompute_porter_stemmer()?;
 
         if self.get_measure() > 1 {
-            RULES_FOUR.iter()
+            RULES_FOUR_SUFFIX.iter()
                 .for_each(|rule| {
                     if self.word.ends_with(rule) {
                         self.word = self.word.replace(rule, "");
@@ -153,10 +210,8 @@ impl PorterStemmerStep4 for Stemmer {
                 });
 
             // Special case of *S or *T and finish by ion
-            if self.word.ends_with("ion") {
-                if Stemmer::check_end_letter(&self.word, ST.to_vec()) {
-                    self.word = self.word.replace("ion", "");
-                }
+            if self.word.ends_with("ion") && Stemmer::check_end_letter(&self.word, &END_LETTERS_ST) {
+                self.word = self.word.replace("ion", "");
             }
         }
 
@@ -170,14 +225,14 @@ impl PorterStemmerStep5 for Stemmer {
         self.recompute_porter_stemmer()?;
 
         // Step 5a
-        if self.get_measure() > 1 && self.word.ends_with("e") {
-            self.word = self.word.trim_end_matches("e").to_string();
+        if self.get_measure() > 1 && self.word.ends_with('e') {
+            self.word = self.word.trim_end_matches('e').to_string();
 
             return Ok(self.word.to_owned());
         }
 
-        if self.get_measure() == 1 && !self.check_cvc_pattern() && self.word.ends_with("e") {
-            self.word = self.word.trim_end_matches("e").to_string();
+        if self.get_measure() == 1 && !self.check_cvc_pattern() && self.word.ends_with('e') {
+            self.word = self.word.trim_end_matches('e').to_string();
 
             return Ok(self.word.to_owned());
         }
@@ -185,56 +240,12 @@ impl PorterStemmerStep5 for Stemmer {
         // Step 5b
         if self.get_measure() > 1 &&
             Kind::end_with_double_consonent(&self.word) &&
-            Stemmer::check_end_letter(&self.word, L.to_vec()) {
+            Stemmer::check_end_letter(&self.word, &END_LETTERS_L) {
                 self.word.pop();
         }
 
         Ok(self.word.to_string())
     }
-}
-
-/// In the case if the following step of 1b is true:
-/// (*v*) ED
-/// (*v*) ING
-/// then we need to do an additional process which will generalize the word
-///
-/// # Arguments
-///
-/// * `trimmed_word` - &str
-fn process_intermediary_step_b(trimmed_word: &str) -> Result<String, Error> {
-    // Case where the trimmed_word ended with
-    // - AT
-    // - BL
-    // - IZ
-    if trimmed_word.ends_with("at") || trimmed_word.ends_with("bl") || trimmed_word.ends_with("iz") {
-        return Ok(format!("{}e", trimmed_word));
-    }
-
-    // Case where the trimmed_word end with a double consonent & is not an L, S or Z
-    // we remove the last consonent
-    if Kind::end_with_double_consonent(trimmed_word) &&
-        !Stemmer::check_end_letter(trimmed_word, LSZ.into()) {
-            let exploded: Vec<char> = trimmed_word.chars()
-                .enumerate()
-                .filter_map(|(idx, c)| {
-                    if idx < trimmed_word.len() - 1 {
-                        Some(c)
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-
-            return Ok(exploded.iter().collect());
-    }
-
-    // last check (m=1 and *o) -> E
-    let stemmer = Stemmer::new(trimmed_word)?;
-    if stemmer.get_measure() == 1 && stemmer.check_cvc_pattern() {
-        return Ok(format!("{}e", trimmed_word));
-    }
-
-    Ok(trimmed_word.to_string())
 }
 
 #[cfg(test)]
@@ -355,9 +366,9 @@ mod tests {
             .process_step_one_b()
             .unwrap()
             .process_step_one_c()
-            .process_step_two_and_three(RULES_TWO.to_vec())
+            .process_step_two_and_three(&RULES_TWO_SUFFIX)
             .unwrap()
-            .process_step_two_and_three(RULES_THREE.to_vec())
+            .process_step_two_and_three(&RULES_THREE_SUFFIX)
             .unwrap();
 
         assert_eq!(processed.word, "decisive");
@@ -372,9 +383,9 @@ mod tests {
             .process_step_one_b()
             .unwrap()
             .process_step_one_c()
-            .process_step_two_and_three(RULES_TWO.to_vec())
+            .process_step_two_and_three(&RULES_TWO_SUFFIX)
             .unwrap()
-            .process_step_two_and_three(RULES_THREE.to_vec())
+            .process_step_two_and_three(&RULES_THREE_SUFFIX)
             .unwrap()
             .process_step_four()
             .unwrap();
@@ -391,9 +402,9 @@ mod tests {
             .process_step_one_b()
             .unwrap()
             .process_step_one_c()
-            .process_step_two_and_three(RULES_TWO.to_vec())
+            .process_step_two_and_three(&RULES_TWO_SUFFIX)
             .unwrap()
-            .process_step_two_and_three(RULES_THREE.to_vec())
+            .process_step_two_and_three(&RULES_THREE_SUFFIX)
             .unwrap()
             .process_step_four()
             .unwrap()

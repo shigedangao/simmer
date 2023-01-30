@@ -9,8 +9,10 @@ use self::porter::ParsedWord;
 use self::steps::{
     PorterStemmerStep1,
     PorterStemmerStep2And3,
-    RULES_TWO,
-    RULES_THREE, PorterStemmerStep4, PorterStemmerStep5
+    PorterStemmerStep4,
+    PorterStemmerStep5,
+    RULES_TWO_SUFFIX,
+    RULES_THREE_SUFFIX
 };
 
 // Constant
@@ -40,8 +42,8 @@ impl Stemmer {
     ///
     /// # Arguments
     ///
-    /// * `letters` - Vec<&str>
-    fn check_end_letter(word: &str, letters: Vec<&str>) -> bool {
+    /// * `letters` - &[&str]
+    fn check_end_letter(word: &str, letters: &[&str]) -> bool {
         for letter in letters {
             if word.ends_with(letter) {
                 return true;
@@ -74,29 +76,29 @@ impl Stemmer {
                     .collect();
 
                 if kinds.len() < 3 {
-                    false
-                } else {
-                    let mut valid = false;
-                    // fused options
-                    let consonents = kinds.get(0)
-                        .zip(kinds.get(2));
-
-                    if let Some((c_one, c_two)) = consonents {
-                        if *c_one == Kind::Consonent && *c_two == Kind::Consonent {
-                            valid = true;
-                        }
-                    }
-
-                    if let Some(vowel) = kinds.get(1) {
-                        if *vowel == Kind::Vowel {
-                            valid = true;
-                        } else {
-                            valid = false;
-                        }
-                    }
-
-                    valid
+                    return false
                 }
+
+                let mut valid = false;
+                // fused options
+                let consonents = kinds.get(0)
+                    .zip(kinds.get(2));
+
+                if let Some((c_one, c_two)) = consonents {
+                    if *c_one == Kind::Consonent && *c_two == Kind::Consonent {
+                        valid = true;
+                    }
+                }
+
+                if let Some(vowel) = kinds.get(1) {
+                    if *vowel == Kind::Vowel {
+                        valid = true;
+                    } else {
+                        valid = false;
+                    }
+                }
+
+                valid
             },
             None => false
         }
@@ -104,7 +106,7 @@ impl Stemmer {
 
     /// Get the measure from the porter stemmer
     fn get_measure(&self) -> i32 {
-        return measure::compute_measures(&self.porter_stemmer)
+        measure::compute_measures(&self.porter_stemmer)
     }
 
     /// Parse a new word and set the stemmer to this new word
@@ -133,8 +135,8 @@ impl Stemmer {
             .process_step_one_a()
             .process_step_one_b()?
             .process_step_one_c()
-            .process_step_two_and_three(RULES_TWO.to_vec())?
-            .process_step_two_and_three(RULES_THREE.to_vec())?
+            .process_step_two_and_three(&RULES_TWO_SUFFIX)?
+            .process_step_two_and_three(&RULES_THREE_SUFFIX)?
             .process_step_four()?
             .process_step_fifth()?;
 
