@@ -41,8 +41,10 @@ impl Kind {
                 .filter(|c| CONSONENT_LIST.contains(c))
                 .collect();
 
-            if chars.len() == 2 {
-                return true;
+            if let Some((first, second)) = chars.get(0).zip(chars.get(1)) {
+                if first == second {
+                    return true;
+                }
             }
         }
 
@@ -76,7 +78,7 @@ mod tests {
 
     #[test]
     fn expect_to_have_double_consonents() {
-        let word = "annyeong";
+        let word = "ownn";
         let res = Kind::end_with_double_consonent(word);
 
         assert_eq!(res, true);

@@ -224,20 +224,20 @@ impl PorterStemmerStep4 for Stemmer {
 
 impl PorterStemmerStep5 for Stemmer {
     fn process_step_fifth(&mut self) -> Result<String, Error> {
-        // recompute the porter Stemmer
-        self.recompute_porter_stemmer()?;
+        let original = self.word.to_string();
 
         // Step 5a
-        if self.get_measure() > 1 && self.word.ends_with('e') {
-            self.word = self.word.trim_end_matches('e').to_string();
+        if self.word.ends_with('e') {
+            self.word.pop();
+            self.recompute_porter_stemmer()?;
 
-            return Ok(self.word.to_owned());
-        }
-
-        if self.get_measure() == 1 && !self.check_cvc_pattern() && self.word.ends_with('e') {
-            self.word = self.word.trim_end_matches('e').to_string();
-
-            return Ok(self.word.to_owned());
+            if self.get_measure() > 1 {
+                return Ok(self.word.to_owned());
+            } else if self.get_measure() == 1 && !self.check_cvc_pattern() {
+                return Ok(self.word.to_owned());
+            } else {
+                self.word = original;
+            }
         }
 
         // Step 5b
@@ -419,7 +419,7 @@ mod tests {
 
     #[test]
     fn expect_to_respect_every_rules() {
-        let mut word = Stemmer::new("mules").unwrap();
+        let mut word = Stemmer::new("meeting").unwrap();
 
         let processed = word
             .process_step_one_a()
@@ -435,6 +435,6 @@ mod tests {
             .process_step_fifth()
             .unwrap();
 
-        assert_eq!(processed, "mule");
+        assert_eq!(processed, "meet");
     }
 }

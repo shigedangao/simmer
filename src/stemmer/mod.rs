@@ -88,6 +88,9 @@ impl Stemmer {
                 if let Some((c_one, c_two)) = consonents {
                     if *c_one == Kind::Consonent && *c_two == Kind::Consonent {
                         valid = true;
+                    } else {
+                        // return false in that case there's no need to further check as the assumed consonent are not consonent
+                        return false;
                     }
                 }
 
@@ -158,6 +161,17 @@ mod tests {
 
         assert_eq!(is_cvc, true);
     }
+
+    #[test]
+    fn expect_other_to_not_end_cvc_pattern() {
+        let word = "meet";
+        let stemmer = Stemmer::new(word).unwrap();
+
+        let is_cvc = stemmer.check_cvc_pattern();
+
+        assert_eq!(is_cvc, false);
+    }
+
 
     #[test]
     fn expect_to_not_end_cvc_pattern() {

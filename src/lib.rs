@@ -32,6 +32,12 @@ mod tests {
             "sensational", "traditional", "reference", "colonizer", "plotted"
         ];
 
+        let correct = vec![
+            "fli", "di", "mule", "deni", "di", "agre", "own",
+            "humbl", "size", "meet", "state", "siez", "item",
+            "sensat", "tradit", "refer", "colon", "plot"
+        ];
+
         let mut stemmed = Vec::new();
         for plural in plurals {
             let res = stem(plural).unwrap();
