@@ -18,6 +18,7 @@ use self::steps::{
 // Constant
 const AVOID_CONSONENTS: [char; 3] = ['w', 'x', 'y'];
 
+#[derive(Debug)]
 pub struct Stemmer {
     word: String,
     porter_stemmer: Vec<ParsedWord>

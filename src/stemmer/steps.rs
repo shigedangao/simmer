@@ -68,14 +68,14 @@ impl PorterStemmerStep1 for Stemmer {
     // Step 1a
     fn process_step_one_a(&mut self) -> &mut Self {
         let word = match &self.word {
-            w if w.ends_with("sses") => w.trim_end_matches("es").to_string(),
-            w if w.ends_with("ies") => w.trim_end_matches("es").to_string(),
-            w if w.ends_with("ss") => w.to_string(),
-            w if w.ends_with('s') => w.trim_end_matches('s').to_string(),
-            _ => self.word.to_owned()
+            w if w.ends_with("sses") => w.trim_end_matches("es"),
+            w if w.ends_with("ies") => w.trim_end_matches("es"),
+            w if w.ends_with("ss") => w,
+            w if w.ends_with('s') => w.trim_end_matches('s'),
+            _ => &self.word
         };
 
-        self.word = word;
+        self.word = word.to_string();
 
         self
     }
@@ -188,7 +188,10 @@ impl PorterStemmerStep2And3 for Stemmer {
                 .iter()
                 .for_each(|(rule, replacement)| {
                     if self.word.ends_with(rule) {
-                        self.word = self.word.replace(rule, replacement);
+                        let mut word = self.word.trim_end_matches(rule).to_string();
+                        word.push_str(replacement);
+
+                        self.word = word;
                     }
                 });
         }
@@ -205,13 +208,13 @@ impl PorterStemmerStep4 for Stemmer {
             RULES_FOUR_SUFFIX.iter()
                 .for_each(|rule| {
                     if self.word.ends_with(rule) {
-                        self.word = self.word.replace(rule, "");
+                        self.word = self.word.trim_end_matches(rule).to_string();
                     }
                 });
 
             // Special case of *S or *T and finish by ion
             if self.word.ends_with("ion") && Stemmer::check_end_letter(&self.word, &END_LETTERS_ST) {
-                self.word = self.word.replace("ion", "");
+                self.word = self.word.trim_end_matches("ion").to_string();
             }
         }
 
@@ -412,5 +415,26 @@ mod tests {
             .unwrap();
 
         assert_eq!(processed, "character");
+    }
+
+    #[test]
+    fn expect_to_respect_every_rules() {
+        let mut word = Stemmer::new("mules").unwrap();
+
+        let processed = word
+            .process_step_one_a()
+            .process_step_one_b()
+            .unwrap()
+            .process_step_one_c()
+            .process_step_two_and_three(&RULES_TWO_SUFFIX)
+            .unwrap()
+            .process_step_two_and_three(&RULES_THREE_SUFFIX)
+            .unwrap()
+            .process_step_four()
+            .unwrap()
+            .process_step_fifth()
+            .unwrap();
+
+        assert_eq!(processed, "mule");
     }
 }

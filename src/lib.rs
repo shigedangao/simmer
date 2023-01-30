@@ -14,9 +14,30 @@ mod tests {
     use super::*;
 
     #[test]
-    fn expect_to_stem_word() {
-        let res = stem("MULTIDIMENSIONAL").unwrap();
+    fn expect_to_stem_plurals_words() {
+        let multidimensional = stem("MULTIDIMENSIONAL").unwrap();
+        let detestable = stem("detestable").unwrap();
+        let caresses = stem("caresses").unwrap();
 
-        assert_eq!(res, "multidimension");
+        assert_eq!(multidimensional, "multidimension");
+        assert_eq!(detestable, "detest");
+        assert_eq!(caresses, "caress");
+    }
+
+    #[test]
+    fn expect_to_stem_multiple_words() {
+        let plurals = vec![
+            "flies", "dies", "mules", "denied", "died", "agreed", "owned",
+            "humbled", "sized", "meeting", "stating", "siezing", "itemization",
+            "sensational", "traditional", "reference", "colonizer", "plotted"
+        ];
+
+        let mut stemmed = Vec::new();
+        for plural in plurals {
+            let res = stem(plural).unwrap();
+            stemmed.push(res);
+        }
+
+        dbg!(stemmed);
     }
 }
