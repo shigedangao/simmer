@@ -44,6 +44,6 @@ mod tests {
             stemmed.push(res);
         }
 
-        dbg!(stemmed);
+        assert_eq!(stemmed, correct);
     }
 }

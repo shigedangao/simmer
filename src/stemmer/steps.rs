@@ -204,17 +204,31 @@ impl PorterStemmerStep4 for Stemmer {
     fn process_step_four(&mut self) -> Result<&mut Stemmer, Error> {
         self.recompute_porter_stemmer()?;
 
-        if self.get_measure() > 1 {
-            RULES_FOUR_SUFFIX.iter()
-                .for_each(|rule| {
-                    if self.word.ends_with(rule) {
-                        self.word = self.word.trim_end_matches(rule).to_string();
-                    }
-                });
+        let original = self.word.to_string();
 
-            // Special case of *S or *T and finish by ion
-            if self.word.ends_with("ion") && Stemmer::check_end_letter(&self.word, &END_LETTERS_ST) {
-                self.word = self.word.trim_end_matches("ion").to_string();
+        for rule in RULES_FOUR_SUFFIX {
+            if self.word.ends_with(rule) {
+                self.word = self.word.trim_end_matches(rule).to_string();
+                self.recompute_porter_stemmer()?;
+
+                if self.get_measure() > 1 {
+                    return Ok(self);
+                } else {
+                    self.word = original.to_string();
+                    return Ok(self);
+                }
+            }
+        }
+
+        // Special case of *S or *T and finish by ion
+        if self.word.ends_with("ion") {
+            self.word = self.word.trim_end_matches("ion").to_string();
+            self.recompute_porter_stemmer()?;
+
+            if self.get_measure() > 1 && Stemmer::check_end_letter(&self.word, &END_LETTERS_ST) {
+                return Ok(self);
+            } else {
+                self.word = original.to_string();
             }
         }
 
@@ -419,7 +433,7 @@ mod tests {
 
     #[test]
     fn expect_to_respect_every_rules() {
-        let mut word = Stemmer::new("meeting").unwrap();
+        let mut word = Stemmer::new("sensational").unwrap();
 
         let processed = word
             .process_step_one_a()
@@ -435,6 +449,6 @@ mod tests {
             .process_step_fifth()
             .unwrap();
 
-        assert_eq!(processed, "meet");
+        assert_eq!(processed, "sensat");
     }
 }
