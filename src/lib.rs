@@ -2,6 +2,11 @@ mod stemmer;
 
 use stemmer::Stemmer;
 
+/// Run the porter stemmer implementation
+///
+/// # Arguments
+///
+/// * `word` - &str
 pub fn stem(word: &str) -> Result<String, anyhow::Error> {
     let mut stemmer = Stemmer::new(&word.to_lowercase())?;
     let res = stemmer.stem()?;

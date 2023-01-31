@@ -41,7 +41,7 @@ impl Kind {
                 .filter(|c| CONSONENT_LIST.contains(c))
                 .collect();
 
-            if let Some((first, second)) = chars.get(0).zip(chars.get(1)) {
+            if let (Some(first), Some(second)) = (chars.get(0), chars.get(1)) {
                 if first == second {
                     return true;
                 }

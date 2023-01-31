@@ -89,12 +89,8 @@ impl PorterStemmerStep1 for Stemmer {
             let original = self.word.clone();
 
             // trim the word
-            let mut trimmed = self.word.to_owned();
-            trimmed = trimmed.trim_end_matches("eed").to_string();
-            // recompute the Stemmer for the trimmed word
-            self.parse_new_word(&trimmed)?;
-
-            if self.get_measure() > 0 {
+            let trimmed = self.word.to_owned().trim_end_matches("eed").to_string();
+            if self.get_measure(Some(&trimmed))? > 0 {
                 // feed -> feed
                 // agreed -> agree
                 // in this case we can only trim the d this will return the 'ee'
@@ -157,8 +153,7 @@ impl PorterStemmerStep1 for Stemmer {
         }
 
         // last check (m=1 and *o) -> E
-        self.parse_new_word(trimmed)?;
-        if self.get_measure() == 1 && self.check_cvc_pattern() {
+        if self.get_measure(Some(trimmed))? == 1 && self.check_cvc_pattern() {
             self.word = format!("{trimmed}e");
 
             return Ok(self);
@@ -180,10 +175,7 @@ impl PorterStemmerStep1 for Stemmer {
 impl PorterStemmerStep2And3 for Stemmer {
     // Step 2
     fn process_step_two_and_three(&mut self, rules: &[(&str, &str)]) -> Result<&mut Stemmer, Error> {
-        // Recompute the porter Stemmer in order to get a measure
-        self.recompute_porter_stemmer()?;
-
-        if self.get_measure() > 0 {
+        if self.get_measure::<String>(None)? > 0 {
             rules
                 .iter()
                 .for_each(|(rule, replacement)| {
@@ -202,16 +194,12 @@ impl PorterStemmerStep2And3 for Stemmer {
 
 impl PorterStemmerStep4 for Stemmer {
     fn process_step_four(&mut self) -> Result<&mut Stemmer, Error> {
-        self.recompute_porter_stemmer()?;
-
         let original = self.word.to_string();
 
         for rule in RULES_FOUR_SUFFIX {
             if self.word.ends_with(rule) {
-                self.word = self.word.trim_end_matches(rule).to_string();
-                self.recompute_porter_stemmer()?;
-
-                if self.get_measure() > 1 {
+                let trimmed = self.word.trim_end_matches(rule).to_string();
+                if self.get_measure(Some(trimmed))? > 1 {
                     return Ok(self);
                 } else {
                     self.word = original.to_string();
@@ -222,10 +210,8 @@ impl PorterStemmerStep4 for Stemmer {
 
         // Special case of *S or *T and finish by ion
         if self.word.ends_with("ion") {
-            self.word = self.word.trim_end_matches("ion").to_string();
-            self.recompute_porter_stemmer()?;
-
-            if self.get_measure() > 1 && Stemmer::check_end_letter(&self.word, &END_LETTERS_ST) {
+            let trimmed = self.word.trim_end_matches("ion").to_string();
+            if self.get_measure(Some(trimmed))? > 1 && Stemmer::check_end_letter(&self.word, &END_LETTERS_ST) {
                 return Ok(self);
             } else {
                 self.word = original.to_string();
@@ -242,12 +228,12 @@ impl PorterStemmerStep5 for Stemmer {
 
         // Step 5a
         if self.word.ends_with('e') {
-            self.word.pop();
-            self.recompute_porter_stemmer()?;
+            let mut popped = self.word.clone();
+            popped.pop();
 
-            if self.get_measure() > 1 {
+            if self.get_measure(Some(popped))? > 1 {
                 return Ok(self.word.to_owned());
-            } else if self.get_measure() == 1 && !self.check_cvc_pattern() {
+            } else if self.get_measure::<String>(None)? == 1 && !self.check_cvc_pattern() {
                 return Ok(self.word.to_owned());
             } else {
                 self.word = original;
@@ -255,7 +241,7 @@ impl PorterStemmerStep5 for Stemmer {
         }
 
         // Step 5b
-        if self.get_measure() > 1 &&
+        if self.get_measure::<String>(None)? > 1 &&
             Kind::end_with_double_consonent(&self.word) &&
             Stemmer::check_end_letter(&self.word, &END_LETTERS_L) {
                 self.word.pop();

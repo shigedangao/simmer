@@ -81,11 +81,7 @@ impl Stemmer {
                 }
 
                 let mut valid = false;
-                // fused options
-                let consonents = kinds.get(0)
-                    .zip(kinds.get(2));
-
-                if let Some((c_one, c_two)) = consonents {
+                if let (Some(c_one), Some(c_two)) = (kinds.get(0), kinds.get(2)) {
                     if *c_one == Kind::Consonent && *c_two == Kind::Consonent {
                         valid = true;
                     } else {
@@ -109,30 +105,20 @@ impl Stemmer {
     }
 
     /// Get the measure from the porter stemmer
-    fn get_measure(&self) -> i32 {
-        measure::compute_measures(&self.porter_stemmer)
-    }
-
-    /// Parse a new word and set the stemmer to this new word
     ///
     /// # Arguments
     ///
-    /// * `&mut self` - Self
-    /// * `word` - &str
-    fn parse_new_word(&mut self, word: &str) -> Result<(), Error> {
-        self.porter_stemmer = ParsedWord::parse(word)?;
-        self.word = word.to_string();
+    /// * `word` - Option<&str>
+    fn get_measure<T: ToString>(&mut self, word: Option<T>) -> Result<i32, Error> {
+        if let Some(w) = word {
+            self.word = w.to_string();
+            self.porter_stemmer = ParsedWord::parse(&self.word)?;
+        }
 
-        Ok(())
+        let weight = measure::compute_measures(&self.porter_stemmer);
+
+        Ok(weight)
     }
-
-    /// recompute the porter stemmer for the current word
-    fn recompute_porter_stemmer(&mut self) -> Result<(), Error> {
-        self.porter_stemmer = ParsedWord::parse(&self.word)?;
-
-        Ok(())
-    }
-
 
     pub fn stem(&mut self) -> Result<String, Error> {
         let result = self
