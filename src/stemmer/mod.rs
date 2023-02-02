@@ -3,7 +3,7 @@ mod measure;
 mod porter;
 mod steps;
 
-use anyhow::Error;
+use crate::error::SimmerError;
 use self::kind::Kind;
 use self::porter::ParsedWord;
 use self::steps::{
@@ -30,7 +30,7 @@ impl Stemmer {
     /// # Arguments
     ///
     /// * `word` - &'a str
-    pub fn new(word: &str) -> Result<Stemmer, Error>{
+    pub fn new(word: &str) -> Result<Stemmer, SimmerError>{
         let porter_stemmer = ParsedWord::parse(word)?;
 
         Ok(Stemmer {
@@ -43,6 +43,7 @@ impl Stemmer {
     ///
     /// # Arguments
     ///
+    /// * `word` - &str
     /// * `letters` - &[&str]
     fn check_end_letter(word: &str, letters: &[&str]) -> bool {
         for letter in letters {
@@ -80,25 +81,15 @@ impl Stemmer {
                     return false
                 }
 
-                let mut valid = false;
-                if let (Some(c_one), Some(c_two)) = (kinds.get(0), kinds.get(2)) {
-                    if *c_one == Kind::Consonent && *c_two == Kind::Consonent {
-                        valid = true;
-                    } else {
-                        // return false in that case there's no need to further check as the assumed consonent are not consonent
-                        return false;
+                if let (Some(c_one), Some(vowel), Some(c_two)) = (kinds.first(), kinds.get(1), kinds.last()) {
+                    if *c_one == Kind::Consonent &&
+                        *c_two == Kind::Consonent &&
+                        *vowel == Kind::Vowel {
+                        return true;
                     }
                 }
 
-                if let Some(vowel) = kinds.get(1) {
-                    if *vowel == Kind::Vowel {
-                        valid = true;
-                    } else {
-                        valid = false;
-                    }
-                }
-
-                valid
+                false
             },
             None => false
         }
@@ -109,7 +100,7 @@ impl Stemmer {
     /// # Arguments
     ///
     /// * `word` - Option<&str>
-    fn get_measure<T: ToString>(&mut self, word: Option<T>) -> Result<i32, Error> {
+    fn get_measure<T: ToString>(&mut self, word: Option<T>) -> Result<i32, SimmerError> {
         if let Some(w) = word {
             self.word = w.to_string();
             self.porter_stemmer = ParsedWord::parse(&self.word)?;
@@ -120,7 +111,8 @@ impl Stemmer {
         Ok(weight)
     }
 
-    pub fn stem(&mut self) -> Result<String, Error> {
+    /// Process each step of the porter stemmer
+    pub fn stem(&mut self) -> Result<String, SimmerError> {
         let result = self
             .process_step_one_a()
             .process_step_one_b()?

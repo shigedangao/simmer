@@ -41,7 +41,7 @@ impl Kind {
                 .filter(|c| CONSONENT_LIST.contains(c))
                 .collect();
 
-            if let (Some(first), Some(second)) = (chars.get(0), chars.get(1)) {
+            if let (Some(first), Some(second)) = (chars.first(), chars.get(1)) {
                 if first == second {
                     return true;
                 }
@@ -62,8 +62,8 @@ impl From<char> for Kind {
     }
 }
 
-impl From<ParsedWord> for Kind {
-    fn from(p: ParsedWord) -> Self {
+impl From<&ParsedWord> for Kind {
+    fn from(p: &ParsedWord) -> Self {
         match p {
             ParsedWord::C(_) => Kind::Consonent,
             ParsedWord::V(_) => Kind::Vowel,

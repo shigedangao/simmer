@@ -16,12 +16,12 @@ pub fn compute_measures(parsed_words: &Vec<ParsedWord>) -> i32 {
         // Set the previous value to the first value initially and skip the checking
         // as we're unable to count
         if previous == Kind::None {
-            previous = Kind::from(pw.to_owned());
+            previous = Kind::from(pw);
 
             continue;
         }
 
-        let current = Kind::from(pw.to_owned());
+        let current = Kind::from(pw);
         // check whether we have the combination 'VC (Vowel -> Consonent'
         if previous == Kind::Vowel && current == Kind::Consonent {
             measured += 1;

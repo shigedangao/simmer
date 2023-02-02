@@ -1,4 +1,4 @@
-use anyhow::Error;
+use crate::error::SimmerError;
 use super::{
     kind::Kind,
     Stemmer,
@@ -30,7 +30,7 @@ pub(crate) trait PorterStemmerStep1 {
     fn process_step_one_a(&mut self) -> &mut Self;
     /// Process step 1b is to remove past particles (ed) from a Stemmer
     /// for example a word such as plastered become plaster
-    fn process_step_one_b(&mut self) -> Result<&mut Self, Error>;
+    fn process_step_one_b(&mut self) -> Result<&mut Self, SimmerError>;
     /// In the case if the following step of 1b is true:
     /// (*v*) ED
     /// (*v*) ING
@@ -39,7 +39,7 @@ pub(crate) trait PorterStemmerStep1 {
     /// # Arguments
     ///
     /// * `trimmed_word` - &str
-    fn process_step_one_b_intermediary(&mut self, trimmed: &str) -> Result<&mut Self, Error>;
+    fn process_step_one_b_intermediary(&mut self, trimmed: &str) -> Result<&mut Self, SimmerError>;
     /// Process step 1c is to remove any suffix from a word
     /// for example a word such as happy become happi
     fn process_step_one_c(&mut self) -> &mut Self;
@@ -51,17 +51,17 @@ pub(crate) trait PorterStemmerStep2And3 {
     /// # Arguments
     ///
     /// * `rules` - &[(&str, &str)]
-    fn process_step_two_and_three(&mut self, rules: &[(&str, &str)]) -> Result<&mut Stemmer, Error>;
+    fn process_step_two_and_three(&mut self, rules: &[(&str, &str)]) -> Result<&mut Stemmer, SimmerError>;
 }
 
 pub(crate) trait PorterStemmerStep4 {
     /// Step 4 replace the suffix with a set of rules if M > 1
-    fn process_step_four(&mut self) -> Result<&mut Stemmer, Error>;
+    fn process_step_four(&mut self) -> Result<&mut Stemmer, SimmerError>;
 }
 
 pub(crate) trait PorterStemmerStep5 {
     /// Step 5 replace the E suffix if M > 1 or M = 1 depending on the detail of subrules
-    fn process_step_fifth(&mut self) -> Result<String, Error>;
+    fn process_step_fifth(&mut self) -> Result<String, SimmerError>;
 }
 
 impl PorterStemmerStep1 for Stemmer {
@@ -81,7 +81,7 @@ impl PorterStemmerStep1 for Stemmer {
     }
 
     // Step 1b
-    fn process_step_one_b(&mut self) -> Result<&mut Stemmer, Error> {
+    fn process_step_one_b(&mut self) -> Result<&mut Stemmer, SimmerError> {
         // expect to return a word ending with 'ee' instead of 'eed'
         // this handle the case of (m>0) EED -> EE
         if self.word.ends_with("eed") {
@@ -122,7 +122,7 @@ impl PorterStemmerStep1 for Stemmer {
         Ok(self)
     }
 
-    fn process_step_one_b_intermediary(&mut self, trimmed: &str) -> Result<&mut Self, Error> {
+    fn process_step_one_b_intermediary(&mut self, trimmed: &str) -> Result<&mut Self, SimmerError> {
         // Case where the trimmed_word ended with
         // - AT
         // - BL
@@ -174,7 +174,7 @@ impl PorterStemmerStep1 for Stemmer {
 
 impl PorterStemmerStep2And3 for Stemmer {
     // Step 2
-    fn process_step_two_and_three(&mut self, rules: &[(&str, &str)]) -> Result<&mut Stemmer, Error> {
+    fn process_step_two_and_three(&mut self, rules: &[(&str, &str)]) -> Result<&mut Stemmer, SimmerError> {
         if self.get_measure::<String>(None)? > 0 {
             rules
                 .iter()
@@ -193,7 +193,7 @@ impl PorterStemmerStep2And3 for Stemmer {
 }
 
 impl PorterStemmerStep4 for Stemmer {
-    fn process_step_four(&mut self) -> Result<&mut Stemmer, Error> {
+    fn process_step_four(&mut self) -> Result<&mut Stemmer, SimmerError> {
         let original = self.word.to_string();
 
         for rule in RULES_FOUR_SUFFIX {
@@ -202,7 +202,7 @@ impl PorterStemmerStep4 for Stemmer {
                 if self.get_measure(Some(trimmed))? > 1 {
                     return Ok(self);
                 } else {
-                    self.word = original.to_string();
+                    self.word = original;
                     return Ok(self);
                 }
             }
@@ -214,7 +214,7 @@ impl PorterStemmerStep4 for Stemmer {
             if self.get_measure(Some(trimmed))? > 1 && Stemmer::check_end_letter(&self.word, &END_LETTERS_ST) {
                 return Ok(self);
             } else {
-                self.word = original.to_string();
+                self.word = original;
             }
         }
 
@@ -223,7 +223,7 @@ impl PorterStemmerStep4 for Stemmer {
 }
 
 impl PorterStemmerStep5 for Stemmer {
-    fn process_step_fifth(&mut self) -> Result<String, Error> {
+    fn process_step_fifth(&mut self) -> Result<String, SimmerError> {
         let original = self.word.to_string();
 
         // Step 5a
@@ -231,9 +231,9 @@ impl PorterStemmerStep5 for Stemmer {
             let mut popped = self.word.clone();
             popped.pop();
 
-            if self.get_measure(Some(popped))? > 1 {
-                return Ok(self.word.to_owned());
-            } else if self.get_measure::<String>(None)? == 1 && !self.check_cvc_pattern() {
+            if self.get_measure(Some(popped))? > 1 ||
+                self.get_measure::<String>(None)? == 1 &&
+                !self.check_cvc_pattern() {
                 return Ok(self.word.to_owned());
             } else {
                 self.word = original;

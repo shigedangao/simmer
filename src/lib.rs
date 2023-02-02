@@ -1,13 +1,15 @@
 mod stemmer;
+pub mod error;
 
+use error::SimmerError;
 use stemmer::Stemmer;
 
-/// Run the porter stemmer implementation
+/// Get the stem from a word
 ///
 /// # Arguments
 ///
 /// * `word` - &str
-pub fn stem(word: &str) -> Result<String, anyhow::Error> {
+pub fn stem(word: &str) -> Result<String, SimmerError> {
     let mut stemmer = Stemmer::new(&word.to_lowercase())?;
     let res = stemmer.stem()?;
 
@@ -37,7 +39,7 @@ mod tests {
             "sensational", "traditional", "reference", "colonizer", "plotted"
         ];
 
-        let correct = vec![
+        let corrects = vec![
             "fli", "di", "mule", "deni", "di", "agre", "own",
             "humbl", "size", "meet", "state", "siez", "item",
             "sensat", "tradit", "refer", "colon", "plot"
@@ -49,6 +51,6 @@ mod tests {
             stemmed.push(res);
         }
 
-        assert_eq!(stemmed, correct);
+        assert_eq!(stemmed, corrects);
     }
 }

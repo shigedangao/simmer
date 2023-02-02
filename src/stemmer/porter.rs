@@ -1,4 +1,4 @@
-use anyhow::Error;
+use crate::error::SimmerError;
 use super::kind::Kind;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -32,7 +32,7 @@ impl ParsedWord {
     /// # Arguments
     ///
     /// * `word` - &str
-    pub fn parse(word: &str) -> Result<Vec<ParsedWord>, Error> {
+    pub fn parse(word: &str) -> Result<Vec<ParsedWord>, SimmerError> {
         let mut kinds = Vec::new();
         // split the string into single char
         let characters: Vec<char> = word.chars().collect();
@@ -41,7 +41,7 @@ impl ParsedWord {
 
         for chars_idx in 0..characters.len() {
             let Some(current_char) = characters.get(chars_idx) else {
-                return Err(Error::msg("Unable to get the current character"))
+                return Err(SimmerError::Character)
             };
 
             // get the last item of the current list
