@@ -1,6 +1,22 @@
-# Simmer 🍚 (WIP)
+# Simmer 🍚
 
 While trying to learn a bit of NLP. I decided to ddo a small crate which implements the [porter stemmer algorithm](https://tartarus.org/martin/PorterStemmer/def.txt?fbclid=IwAR3nCMZAT0Ggg-TGKgb0GBtR_f4ZFtWnbt0FKVmD11Kdf8TCQlpX9GMy3ak)
+
+## Usage 
+
+You can run the example with the command `cargo run --example example`. Otherwise you may refer to the snippet below
+
+```rust
+use simmer;
+
+fn main() {
+    let stem = simmer::stem("excellent").unwrap();
+    assert_eq!(stem, "excel");
+
+    let sentence = simmer::stem_sentence("Alex was an excellent dancer.").unwrap().join(" ");
+    assert_eq!(sentence, "alex wa an excel dancer");
+}
+```
 
 ## Resources
 
